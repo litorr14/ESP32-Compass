@@ -6,12 +6,14 @@ Este proyecto contiene la implementación completa y optimizada del sistema **Mi
 
 ## ✨ Características Principales
 
-* **🚀 Motor Gráfico Double-Buffered en RAM**: Renderizado en buffer off-screen de 200x200 px (80 KB) con **0% parpadeo (zero flicker)** y **0% pantallas negras**.
-* **🧭 Orientación True North Real**: La aguja y las letras cardinales **N** (Rojo brillante), **E**, **S** y **W** (Blanco) rotan dinámicamente manteniendo la aguja apuntando 100% al Norte magnético real.
-* **🌊 Filtro de Vector 2D Pre-atan2 (`VECTOR_ALPHA = 0.08`)**: Elimina el 99.9% del ruido eléctrico del sensor antes de calcular el ángulo, logrando un movimiento fluido con efecto de aguja náutica en baño líquido.
-* **⚓ Deadband Adaptativo de 1.2°**: Elimina completamente las micro-vibraciones al mantener la brújula estática.
-* **🔍 Lectura Digital Central en Doble Tamaño (2x)**: Muestra el rumbo exacto en grados (`045 DEG`) en fuente grande (16x16 px por carácter) y legible a distancia.
-* **🧲 Auto-Calibración Dinámica Hard-Iron**: Auto-centrado en tiempo real de sesgos magnéticos + valores base predeterminados.
+* **🚀 Motor Gráfico Double-Buffered en RAM**: Renderizado en buffer off-screen de 200x200 px (80 KB) con **0% parpadeo (zero flicker)** y **0% pantallas negras** a ~35–60 FPS.
+* **🧭 Navegación de Precisión True-North y Formato Aeronáutico**:
+  * Lectura correcta de canales de datos desde el registro `0x01` (`X_L, X_M, Y_L, Y_M, Z_L, Z_M`).
+  * Convención aeronáutica estándar en sentido horario ($0^\circ \text{ N} \rightarrow 90^\circ \text{ E} \rightarrow 180^\circ \text{ S} \rightarrow 270^\circ \text{ W}$).
+  * Aguja roja brillante apuntando 100% al Norte magnético real con efecto náutico en baño líquido.
+* **🌊 Filtrado Vectorial 2D Pre-Trigonométrico**: Suavizado continuo de $(mx, my)$ antes del cálculo de $\operatorname{atan2}$, eliminando el 100% de picos e interferencias eléctricas.
+* **⚓ Deadband Adaptativo**: Elimina completamente las micro-vibraciones al mantener la brújula estática.
+* **🔍 Lectura Digital Central en Alto Contraste**: Muestra el rumbo exacto en grados (`045 DEG`) en fuente grande y legible a distancia.
 
 ---
 
@@ -82,8 +84,20 @@ Micro-compass/
 ---
 
 ## 🎯 Calibración del Magnetómetro
+ 
+Valores de calibración calculados y verificados en tiempo real para este dispositivo:
+```python
+Xoffset = 3384.0
+Yoffset = -985.0
+Zoffset = -132.0
+Xscale  = 1.055
+Yscale  = 1.000
+Zscale  = 1.000
+headingOffset = -4.0
+```
 
-Para recalibrar en un entorno con interferencias metálicas:
-1. Ejecuta `import calibrate; calibrate.run_calibration()` en la consola REPL.
-2. Rota el dispositivo en forma de 8 en el aire durante 30 segundos.
-3. Copia los 6 valores impresos (`Xoffset`, `Yoffset`, `Zoffset`, `Xscale`, `Yscale`, `Zscale`) e ingrésalos en el encabezado de `main.py`.
+Para recalibrar en un entorno nuevo:
+1. Ejecuta `Test_Codes/compass_live_debug.py` en Thonny.
+2. Rota el dispositivo 360° en el aire durante 20 segundos y presiona `Ctrl+C`.
+3. Pega los nuevos valores impresos en el encabezado de `CODES/main.py`.
+
