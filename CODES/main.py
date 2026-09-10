@@ -25,16 +25,16 @@ PIN_SDA  = 0   # GPIO 0
 PIN_SCL  = 1   # GPIO 1
 
 # Default Calibration Parameters (Run calibrate.py to customize for your environment)
-Xoffset = -640.0
-Yoffset = 779.0
-Zoffset = 509.0
+Xoffset = 3384.0
+Yoffset = -985.0
+Zoffset = -132.0
 
-Xscale = 1.0
-Yscale = 1.0
-Zscale = 1.0
+Xscale = 1.055
+Yscale = 1.000
+Zscale = 1.000
 
 # Sensor mounting orientation offset (in degrees)
-headingOffset = 0.0
+headingOffset = -4.0
 
 # Exponential Smoothing Low-Pass Filter Alpha (0.22 = smooth liquid-damped compass feel)
 FILTER_ALPHA = 0.22
@@ -123,54 +123,25 @@ def main():
             if raw_data is not None:
                 x_raw, y_raw, z_raw = raw_data
 
-                # 1. Low-Pass Filter RAW 2D vectors BEFORE atan2 (eliminates electronic sensor noise!)
-                if smooth_x is None:
-                    smooth_x = float(x_raw)
-                    smooth_y = float(y_raw)
-                else:
-                    smooth_x += VECTOR_ALPHA * (x_raw - smooth_x)
-                    smooth_y += VECTOR_ALPHA * (y_raw - smooth_y)
+                # 1. Hard-Iron & Soft-Iron correction
+                mx = (float(x_raw) - Xoffset) * Xscale
+                my = (float(y_raw) - Yoffset) * Yscale
 
-                # 2. Track min/max to auto-center Hard-Iron offset dynamically
-                if smooth_x < min_x: min_x = smooth_x
-                if smooth_x > max_x: max_x = smooth_x
-                if smooth_y < min_y: min_y = smooth_y
-                if smooth_y > max_y: max_y = smooth_y
-
-                # Calculate effective Hard-Iron offsets
-                if Xoffset != 0.0:
-                    curr_x_off = Xoffset
-                elif max_x > min_x:
-                    curr_x_off = (max_x + min_x) / 2.0
-                else:
-                    curr_x_off = 0.0
-
-                if Yoffset != 0.0:
-                    curr_y_off = Yoffset
-                elif max_y > min_y:
-                    curr_y_off = (max_y + min_y) / 2.0
-                else:
-                    curr_y_off = 0.0
-
-                # 3. Apply calibration scaling and offset
-                x = (smooth_x - curr_x_off) * Xscale
-                y = (smooth_y - curr_y_off) * Yscale
-                y = -y
-
-                # 4. Calculate clean magnetic heading in degrees
-                heading = (math.degrees(math.atan2(y, x)) + headingOffset) % 360.0
-                if heading < 0:
-                    heading += 360.0
-
-                # 5. Refresh display UI when heading changes by at least 1.2 deg to eliminate all vibration
+                # 2. Vector Low-Pass Filter (eliminates noise spikes before atan2)
                 if first_reading:
-                    last_rendered_heading = heading
+                    smooth_x = mx
+                    smooth_y = my
                     first_reading = False
-                    ui.update(heading)
                 else:
-                    if abs(angle_difference(last_rendered_heading, heading)) >= 1.2:
-                        last_rendered_heading = heading
-                        ui.update(heading)
+                    smooth_x += 0.25 * (mx - smooth_x)
+                    smooth_y += 0.25 * (my - smooth_y)
+
+                # 3. Clean Clockwise Magnetic Heading (Matching test_smooth_north.py)
+                raw_angle = math.degrees(math.atan2(smooth_y, smooth_x))
+                heading = (-raw_angle + headingOffset) % 360.0
+
+                # 4. Refresh display UI
+                ui.update(heading)
 
         time.sleep_ms(2)
 

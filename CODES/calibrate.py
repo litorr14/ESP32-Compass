@@ -5,7 +5,10 @@ Rotate the assembled compass unit smoothly in all 3D orientations for 30 seconds
 """
 
 import time
+import sys
 from machine import Pin, I2C
+
+sys.modules.pop("qmc5883", None)
 from qmc5883 import QMC5883
 
 def run_calibration():
@@ -30,12 +33,9 @@ def run_calibration():
     print("Get ready to rotate your device 360 degrees in all axes!")
     time.sleep(3)
 
-    min_x = 32767
-    max_x = -32768
-    min_y = 32767
-    max_y = -32768
-    min_z = 32767
-    max_z = -32768
+    min_x, max_x = None, None
+    min_y, max_y = None, None
+    min_z, max_z = None, None
 
     duration_sec = 30
     start_time = time.time()
@@ -59,14 +59,17 @@ def run_calibration():
         if raw is not None:
             x, y, z = raw
 
-            if x < min_x: min_x = x
-            if x > max_x: max_x = x
-
-            if y < min_y: min_y = y
-            if y > max_y: max_y = y
-
-            if z < min_z: min_z = z
-            if z > max_z: max_z = z
+            if min_x is None:
+                min_x, max_x = x, x
+                min_y, max_y = y, y
+                min_z, max_z = z, z
+            else:
+                if x < min_x: min_x = x
+                if x > max_x: max_x = x
+                if y < min_y: min_y = y
+                if y > max_y: max_y = y
+                if z < min_z: min_z = z
+                if z > max_z: max_z = z
 
         time.sleep_ms(20)
 

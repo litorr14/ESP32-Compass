@@ -123,7 +123,6 @@ class CompassUI:
         # South (White)
         rad_S = math.radians(north_angle + 180)
         sx = int(self.tcx + r_label * math.sin(rad_S) - 12)
-        sy = int(self.tcx - r_label * math.cos(rad_S) - 12) # Note: tcy
         sy = int(self.tcy - r_label * math.cos(rad_S) - 12)
         self._draw_fb_char(sx, sy, "S", self.c_cardinal)
 

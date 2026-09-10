@@ -50,12 +50,12 @@ class QMC5883:
         return None
 
     def _write_reg(self, reg, val):
-        """Send register write using writeto_mem with writeto fallback."""
+        """Send register write using direct writeto with writeto_mem fallback."""
         try:
-            self.i2c.writeto_mem(self.address, reg, bytearray([val]))
+            self.i2c.writeto(self.address, bytearray([reg, val]))
         except Exception:
             try:
-                self.i2c.writeto(self.address, bytearray([reg, val]))
+                self.i2c.writeto_mem(self.address, reg, bytearray([val]))
             except Exception:
                 pass
 
@@ -70,16 +70,22 @@ class QMC5883:
             else:
                 print(f"Configuring QMC magnetometer at address 0x{self.address:02X}...")
 
-                # 1. Clear Reset / Set Period Register (Reg 0x0B = 0x01)
+                # 1. Reset / Set Period Register
+                try:
+                    self._write_reg(0x0A, 0x80)
+                    time.sleep_ms(20)
+                except Exception:
+                    pass
+
                 try:
                     self._write_reg(0x0B, 0x01)
                     time.sleep_ms(10)
                 except Exception:
                     pass
 
-                # 2. Write continuous measurement mode
+                # 2. Write continuous measurement mode (0x0D = ±30G Range, 200Hz ODR, 512 OSR)
                 mode_accepted = False
-                for mode_val in (0x1D, 0x19, 0x0D, 0x09, 0x01):
+                for mode_val in (0x0D, 0x05, 0x01, 0x25, 0x21):
                     try:
                         self._write_reg(0x09, mode_val)
                         self._write_reg(0x0A, mode_val)
@@ -89,15 +95,15 @@ class QMC5883:
                         reg10 = self.i2c.readfrom_mem(self.address, 0x0A, 1)[0]
 
                         if (reg10 & 0x01) == 1 or (reg9 & 0x01) == 1 or reg10 == mode_val or reg9 == mode_val:
-                            print(f"  --> Continuous Mode Active! (Reg 0x0A: 0x{reg10:02X}, Reg 0x09: 0x{reg9:02X})")
+                            print(f"  --> Continuous ±30G Mode Active! (Reg 0x0A: 0x{reg10:02X}, Reg 0x09: 0x{reg9:02X})")
                             mode_accepted = True
                             break
                     except Exception:
                         pass
 
                 if not mode_accepted:
-                    self._write_reg(0x09, 0x1D)
-                    self._write_reg(0x0A, 0x1D)
+                    self._write_reg(0x09, 0x0D)
+                    self._write_reg(0x0A, 0x0D)
 
                 time.sleep_ms(30)
 
@@ -111,8 +117,13 @@ class QMC5883:
                 data = self.i2c.readfrom_mem(self.address, 0x03, 6)
                 x, z, y = ustruct.unpack(">hhh", data)
             else:
-                data = self.i2c.readfrom_mem(self.address, 0x00, 6)
+                data = self.i2c.readfrom_mem(self.address, 0x01, 6)
                 x, y, z = ustruct.unpack("<hhh", data)
+                # Read register 0x09 to unlatch for next conversion cycle
+                try:
+                    self.i2c.readfrom_mem(self.address, 0x09, 1)
+                except Exception:
+                    pass
 
             if not (x == 0 and y == 0 and z == 0):
                 self.last_raw = (x, y, z)
